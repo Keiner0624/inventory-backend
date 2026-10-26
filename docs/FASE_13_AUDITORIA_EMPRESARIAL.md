@@ -99,7 +99,7 @@ $env:JAVA_HOME = '<ruta a JDK 21>'
 python -m unittest discover -s scripts/ci/tests -v
 ```
 
-Ejecución aislada completa: abrir una pull request de esta rama a main, o seleccionar la rama en **Actions → Backend CI → Run workflow**. No ejecutar manualmente los scripts de preparación CI contra SQL Server local. Para una ejecución manual del perfil SQL local debe existir previamente V4 en `LM_Medical_Test`, con credenciales externas y autorización para fixtures; no activa Flyway automáticamente.
+Ejecución aislada completa: hacer push a una rama `feature/**`, abrir una pull request a main, o seleccionar la rama en **Actions → Backend CI → Run workflow**. No ejecutar manualmente los scripts de preparación CI contra SQL Server local. Para una ejecución manual del perfil SQL local debe existir previamente V4 en `LM_Medical_Test`, con credenciales externas y autorización para fixtures; no activa Flyway automáticamente.
 
 Fuentes de diseño: [propagación transaccional de Spring](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html).
 
@@ -112,3 +112,5 @@ La suite SQL prevista comprende **55 casos**: 37 anteriores de seguridad y 18 nu
 ## Alcance pendiente deliberado
 
 No incluye auditoría de intentos fallidos, login/logout, el bootstrap inicial sin un actor autenticado, trabajos automáticos, exportación, retención/purga, firmas criptográficas ni acciones SQL realizadas fuera de la aplicación. No reconstruye eventos históricos anteriores a V4. No realiza despliegues ni merge a main.
+
+El workflow Backend CI también se ejecuta en pushes a ramas feature/**. Esto permite validar ramas para revisión aunque la integración de GitHub no tenga permiso para crear pull requests (403 observado). No modifica permisos, credenciales, controles de pruebas ni la rama main.
