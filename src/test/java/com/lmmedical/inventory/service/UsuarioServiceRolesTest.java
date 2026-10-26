@@ -15,7 +15,7 @@ class UsuarioServiceRolesTest {
         var roles = mock(RolRepository.class);
         var assignments = mock(UsuarioRolRepository.class);
         var encoder = mock(PasswordEncoder.class);
-        var service = new UsuarioService(users, roles, assignments, encoder);
+        var service = new UsuarioService(users, roles, assignments, encoder, mock(AuditoriaService.class));
         Set<String> nullElement = new HashSet<>();
         nullElement.add(null);
         var cases = Arrays.asList(null, new ActualizarRolesRequest(null), new ActualizarRolesRequest(Set.of()),

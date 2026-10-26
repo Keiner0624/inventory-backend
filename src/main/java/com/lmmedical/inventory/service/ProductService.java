@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.ProductRequest;
 import com.lmmedical.inventory.dto.ProductResponse;
 import com.lmmedical.inventory.entity.Category;
@@ -19,6 +22,7 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class ProductService {
+    private final AuditoriaService auditoria;
     private final ProductRepository productoRepository;
     private final CategoryRepository categoriaRepository;
 
@@ -43,6 +47,7 @@ public class ProductService {
       );
 
         Product guardado = productoRepository.save(product);
+        auditoria.registrar(PRODUCTO_CREADO, guardado.getId(), null, detalle(guardado));
         return convertirResponse(guardado);
     }
 
@@ -82,6 +87,7 @@ public class ProductService {
         }
         Category category = categoriaRepository.findById(request.categoriaId()).orElseThrow(()
                 -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoria no exite"));
+        var anterior = detalle(product);
         product.actualizarDatos(
                 codigo,
                 request.nombre().trim(),
@@ -90,7 +96,14 @@ public class ProductService {
                 request.precioVenta(),
                 category
         );
+        auditoria.registrar(PRODUCTO_ACTUALIZADO, product.getId(), null,
+                new DetalleAuditoria.CambioProducto(anterior, detalle(product)));
         return convertirResponse(product);
+    }
+
+    private DetalleAuditoria.Producto detalle(Product producto) {
+        return new DetalleAuditoria.Producto(producto.getCodigo(), producto.getNombre(), producto.getCategoria().getId(), producto.getPrecioCompra(),
+                producto.getPrecioVenda(), producto.isActivo());
     }
 
     @Transactional
@@ -100,5 +113,6 @@ public class ProductService {
             return;
         }
         product.desactivar();
+        auditoria.registrar(PRODUCTO_DESACTIVADO, product.getId(), null, new DetalleAuditoria.Estado(true, false));
     }
 }

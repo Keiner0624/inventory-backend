@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.CategoryRequest;
 import com.lmmedical.inventory.dto.CategoryResponse;
 import com.lmmedical.inventory.entity.Category;
@@ -15,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class CategoryService{
+    private final AuditoriaService auditoria;
     private final CategoryRepository categoryRepository;
 
     @Transactional
@@ -26,6 +30,7 @@ public class CategoryService{
         }
         Category category = new Category(nombre);
         Category guardada = categoryRepository.save(category);
+        auditoria.registrar(CATEGORIA_CREADA, guardada.getId(), null, new DetalleAuditoria.Catalogo(null, guardada.getNombre(), null));
         return convertirResponse(guardada);
     }
 
@@ -48,7 +53,10 @@ public class CategoryService{
         if (categoryRepository.existsByNombreIgnoreCaseAndIdNot(nombre, id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una categoria con ese nombre");
         }
+        var anterior = new DetalleAuditoria.Catalogo(null, category.getNombre(), null);
         category.cambiarNombre(nombre);
+        auditoria.registrar(CATEGORIA_ACTUALIZADA, category.getId(), null,
+                new DetalleAuditoria.CambioCatalogo(anterior, new DetalleAuditoria.Catalogo(null, category.getNombre(), null)));
         return convertirResponse(category);
     }
 

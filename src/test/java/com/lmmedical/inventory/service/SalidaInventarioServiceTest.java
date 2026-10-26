@@ -37,6 +37,9 @@ class SalidaInventarioServiceTest {
     @Mock
     private MovimientoInventarioRepository movimientoRepository;
 
+    @Mock
+    private AuditoriaService auditoria;
+
     @InjectMocks
     private SalidaInventarioService service;
 

@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.usuario.*;
 import com.lmmedical.inventory.entity.Rol;
 import com.lmmedical.inventory.entity.Usuario;
@@ -20,12 +23,14 @@ import java.util.*;
 
 @Service
 public class UsuarioService {
+    private final AuditoriaService auditoria;
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final UsuarioRolRepository  usuarioRolRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, RolRepository rolRepository, UsuarioRolRepository usuarioRolRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioService(UsuarioRepository usuarioRepository, RolRepository rolRepository, UsuarioRolRepository usuarioRolRepository, PasswordEncoder passwordEncoder, AuditoriaService auditoria) {
+        this.auditoria = auditoria;
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
@@ -48,6 +53,8 @@ public class UsuarioService {
         String hash = passwordEncoder.encode(request.password());
         Usuario usuario = usuarioRepository.saveAndFlush(new Usuario(request.nombre(), request.apellido(), correo, hash));
         usuarioRolRepository.saveAndFlush(new UsuarioRol(usuario, rol));
+        auditoria.registrar(USUARIO_CREADO, usuario.getId(), null,
+                new DetalleAuditoria.Roles(List.of(), List.of(rol.getCodigo())));
         return new UsuarioResponse(
                 usuario.getId(),
                 usuario.getNombre(),
@@ -111,7 +118,10 @@ public class UsuarioService {
         if (!activo && usuario.getCorreo().equalsIgnoreCase(correoAdministrador)){
             throw new ResponseStatusException(HttpStatus.CONFLICT, "No puedes desactivar tu propia cuenta");
         }
+        boolean anterior = usuario.isActivo();
         usuario.cambiarEstado(activo);
+        if (anterior != activo) auditoria.registrar(activo ? USUARIO_ACTIVADO : USUARIO_DESACTIVADO,
+                usuario.getId(), null, new DetalleAuditoria.Estado(anterior, activo));
         return buscarPorId(id);
     }
 
@@ -167,6 +177,10 @@ public class UsuarioService {
             }
         }
         usuarioRolRepository.flush();
+        var anteriores = rolesActuales.stream().map(Rol::getCodigo).sorted().toList();
+        var posteriores = nuevosRoles.stream().sorted().toList();
+        if (!anteriores.equals(posteriores)) auditoria.registrar(ROLES_MODIFICADOS, usuarioId, null,
+                new DetalleAuditoria.Roles(anteriores, posteriores));
         return new UsuarioConsultaResponse(
                 usuario.getId(),
                 usuario.getNombre(),

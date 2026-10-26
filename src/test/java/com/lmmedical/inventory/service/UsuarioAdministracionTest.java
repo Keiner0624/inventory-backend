@@ -31,7 +31,7 @@ class UsuarioAdministracionTest {
         users = mock(UsuarioRepository.class);
         roles = mock(RolRepository.class);
         assignments = mock(UsuarioRolRepository.class);
-        service = new UsuarioService(users, roles, assignments, mock(PasswordEncoder.class));
+        service = new UsuarioService(users, roles, assignments, mock(PasswordEncoder.class), mock(AuditoriaService.class));
         admin = user(1L, "admin@example.test");
         target = user(2L, "target@example.test");
         adminRole = new Rol("ADMIN", "Administrador");

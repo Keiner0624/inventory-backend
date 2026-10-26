@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.AlmacenRequest;
 import com.lmmedical.inventory.dto.AlmacenResponse;
 import com.lmmedical.inventory.entity.Almacen;
@@ -17,6 +20,7 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class AlmacenService {
+    private final AuditoriaService auditoria;
     private final AlmacenRepository almacenRepository;
 
     @Transactional
@@ -29,6 +33,7 @@ public class AlmacenService {
 
         Almacen almacen = new Almacen(codigo, request.nombre().trim(), request.ubicacion().trim());
         Almacen guardado = almacenRepository.save(almacen);
+        auditoria.registrar(ALMACEN_CREADO, guardado.getId(), guardado.getId(), new DetalleAuditoria.Catalogo(guardado.getCodigo(), guardado.getNombre(), guardado.isActivo()));
         return convertirResponse(guardado);
     }
 
@@ -57,7 +62,10 @@ public class AlmacenService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El código pertenece a otro almacén");
         }
 
+        var anterior = new DetalleAuditoria.Catalogo(almacen.getCodigo(), almacen.getNombre(), almacen.isActivo());
         almacen.actualizar(codigo,request.nombre().trim(),request.ubicacion().trim());
+        auditoria.registrar(ALMACEN_ACTUALIZADO, almacen.getId(), almacen.getId(),
+                new DetalleAuditoria.CambioCatalogo(anterior, new DetalleAuditoria.Catalogo(almacen.getCodigo(), almacen.getNombre(), almacen.isActivo())));
         return convertirResponse(almacen);
     }
 
@@ -69,6 +77,7 @@ public class AlmacenService {
             return;
         }
         almacen.desactivar();
+        auditoria.registrar(ALMACEN_DESACTIVADO, almacen.getId(), almacen.getId(), new DetalleAuditoria.Estado(true, false));
     }
 
     private Almacen buscarEntidad(Long id) {

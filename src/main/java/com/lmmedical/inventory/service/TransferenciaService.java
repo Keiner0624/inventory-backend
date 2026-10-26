@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.*;
 import com.lmmedical.inventory.entity.*;
 import com.lmmedical.inventory.repository.*;
@@ -17,6 +20,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class TransferenciaService {
+    private final AuditoriaService auditoria;
     private final TransferenciaRepository transferenciaRepository;
     private final ProductRepository productoRepository;
     private final AlmacenRepository almacenRepository;
@@ -77,6 +81,10 @@ public class TransferenciaService {
         Transferencia guardada = transferenciaRepository.saveAndFlush(transferencia);
         // La fecha la genera SQL Server con el DEFAULT de creada_en.
         entityManager.refresh(guardada);
+        auditoria.registrar(TRANSFERENCIA_REGISTRADA, guardada.getId(), request.origenId(),
+                new DetalleAuditoria.Traslado(request.productoId(), request.origenId(), request.destinoId(),
+                        request.cantidad(), salida.detalles().stream().map(d ->
+                            new DetalleAuditoria.LoteTrasladado(d.loteId(), d.cantidadRetirada())).toList()));
         return convertirResponse(guardada);
     }
 

@@ -207,6 +207,7 @@
                             <reportsDirectory>${project.build.directory}/security-phase129/sqlserver</reportsDirectory>
                             <includes>
                                 <include>**/SecuritySqlServerTest.java</include>
+                                <include>**/AuditoriaSqlServerTest.java</include>
                             </includes>
                             <failIfNoTests>true</failIfNoTests>
                         </configuration>

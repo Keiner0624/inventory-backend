@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.ProveedorRequest;
 import com.lmmedical.inventory.dto.ProveedorResponse;
 import com.lmmedical.inventory.dto.ProveedorUpdateRequest;
@@ -19,6 +22,7 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class ProveedorService {
+    private final AuditoriaService auditoria;
     private final ProveedorRepository proveedorRepository;
 
     @Transactional
@@ -36,6 +40,7 @@ public class ProveedorService {
                 request.telefono()
         );
         Proveedor guardado =  proveedorRepository.save(proveedor);
+        auditoria.registrar(PROVEEDOR_CREADO, guardado.getId(), null, new DetalleAuditoria.Catalogo(null, guardado.getRazonSocial(), guardado.isActivo()));
         return convertirResponse(guardado);
     }
 
@@ -57,11 +62,14 @@ public class ProveedorService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "No se puede actualizar un proveedor inactivo.");
         }
 
+        var anterior = new DetalleAuditoria.Catalogo(null, proveedor.getRazonSocial(), proveedor.isActivo());
         proveedor.actualizar(
                 request.razonSocial().trim(),
                 normalizarCorreo(request.correo()),
                 request.telefono()
         );
+        auditoria.registrar(PROVEEDOR_ACTUALIZADO, proveedor.getId(), null,
+                new DetalleAuditoria.CambioCatalogo(anterior, new DetalleAuditoria.Catalogo(null, proveedor.getRazonSocial(), proveedor.isActivo())));
         return convertirResponse(proveedor);
     }
 
@@ -73,6 +81,7 @@ public class ProveedorService {
             return;
         }
         proveedor.desactivar();
+        auditoria.registrar(PROVEEDOR_DESACTIVADO, proveedor.getId(), null, new DetalleAuditoria.Estado(true, false));
     }
 
     private Proveedor buscarEntidad(Long id) {

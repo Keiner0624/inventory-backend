@@ -67,7 +67,7 @@ SQL
     # Plugin existente, credenciales efimeras solo en el entorno del proceso de migracion.
     if ! DB_USERNAME=sa DB_PASSWORD="$MSSQL_SA_PASSWORD" bash ./mvnw -B --no-transfer-progress \
       "-Dflyway.url=jdbc:sqlserver://127.0.0.1:$port;databaseName=LM_Medical_Test;encrypt=true;trustServerCertificate=true" \
-      -Dflyway.target=3 -Dflyway.baselineOnMigrate=false -Dflyway.cleanDisabled=true \
+      -Dflyway.target=4 -Dflyway.baselineOnMigrate=false -Dflyway.cleanDisabled=true \
       flyway:migrate flyway:validate > "$private/flyway.log" 2>&1; then
       echo 'Flyway no pudo preparar o validar la base CI; no se ejecutaran las integraciones' >&2; exit 1
     fi
@@ -78,9 +78,9 @@ CREATE LOGIN [lm_ci_test] WITH PASSWORD=N'$DB_PASSWORD', CHECK_POLICY=ON;
 GO
 USE [LM_Medical_Test];
 IF DB_NAME() <> N'LM_Medical_Test' THROW 51202, 'Destino CI incorrecto', 1;
-IF (SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE type='SQL' AND success=1 AND version IN ('1','2','3')) <> 3
- OR (SELECT COUNT(*) FROM dbo.flyway_schema_history) <> 3 THROW 51203, 'Historial CI inesperado', 1;
-IF (SELECT COUNT(*) FROM sys.tables WHERE schema_id=SCHEMA_ID('dbo') AND name<>'flyway_schema_history') <> 15
+IF (SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE type='SQL' AND success=1 AND version IN ('1','2','3','4')) <> 4
+ OR (SELECT COUNT(*) FROM dbo.flyway_schema_history) <> 4 THROW 51203, 'Historial CI inesperado', 1;
+IF (SELECT COUNT(*) FROM sys.tables WHERE schema_id=SCHEMA_ID('dbo') AND name<>'flyway_schema_history') <> 16
  THROW 51204, 'Esquema CI incompleto', 1;
 CREATE USER [lm_ci_test] FOR LOGIN [lm_ci_test];
 ALTER ROLE [db_datareader] ADD MEMBER [lm_ci_test];
@@ -88,7 +88,7 @@ ALTER ROLE [db_datawriter] ADD MEMBER [lm_ci_test];
 GRANT VIEW DEFINITION TO [lm_ci_test];
 GO
 SQL
-    printf 'V1, V2 y V3 verificadas; cuenta CI de pruebas sin permisos DDL.\n'
+    printf 'V1, V2, V3 y V4 verificadas; cuenta CI de pruebas sin permisos DDL.\n'
     ;;
   verify)
     verify_target > /dev/null

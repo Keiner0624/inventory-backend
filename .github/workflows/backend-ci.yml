@@ -50,7 +50,7 @@ jobs:
           retention-days: 7
 
   sqlserver:
-    name: Seguridad con SQL Server aislado
+    name: Seguridad y auditoria con SQL Server aislado
     needs: unit
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -65,7 +65,7 @@ jobs:
           cache: maven
       - name: Iniciar SQL Server temporal con credenciales efimeras
         run: bash scripts/ci/sqlserver.sh start
-      - name: Crear la base y aplicar exclusivamente V1-V3
+      - name: Crear la base y aplicar exclusivamente V1-V4
         run: bash scripts/ci/sqlserver.sh migrate
       - name: Compilar y ejecutar integracion y concurrencia reales
         run: bash scripts/ci/run-tests.sh sqlserver

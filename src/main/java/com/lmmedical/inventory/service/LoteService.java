@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.LoteRequest;
 import com.lmmedical.inventory.dto.LoteResponse;
 
@@ -21,6 +24,7 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class LoteService {
+    private final AuditoriaService auditoria;
 
     private final LoteRepository loteRepository;
     private final ProductRepository productoRepository;
@@ -63,6 +67,8 @@ public class LoteService {
         );
 
         Lote guardado = loteRepository.save(lote);
+        auditoria.registrar(LOTE_CREADO, guardado.getId(), null,
+                new DetalleAuditoria.LoteCreado(producto.getId(), guardado.getFechaVencimiento()));
 
         return new LoteResponse(
                 guardado.getId(),

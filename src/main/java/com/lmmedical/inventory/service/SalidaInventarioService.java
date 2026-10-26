@@ -1,5 +1,8 @@
 package com.lmmedical.inventory.service;
 
+import com.lmmedical.inventory.dto.auditoria.DetalleAuditoria;
+import static com.lmmedical.inventory.enums.AccionAuditoria.*;
+
 import com.lmmedical.inventory.dto.*;
 
 import com.lmmedical.inventory.entity.*;
@@ -23,6 +26,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class SalidaInventarioService {
+    private final AuditoriaService auditoria;
 
     private final ProductRepository productoRepository;
     private final AlmacenRepository almacenRepository;
@@ -157,6 +161,8 @@ public class SalidaInventarioService {
                     );
 
             movimientoRepository.save(movimiento);
+            auditoria.registrar(SALIDA_REGISTRADA, movimiento.getId(), almacen.getId(),
+                    new DetalleAuditoria.Movimiento(producto.getId(), candidato.lote().getId(), retirar));
 
             detalles.add(
                     new DetalleSalidaResponse(
