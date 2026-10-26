@@ -1,0 +1,104 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  unit:
+    name: Unitarias y MockMvc
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Probar las herramientas de CI
+        run: python3 -m unittest discover -s scripts/ci/tests -v
+      - name: Compilar y ejecutar unitarias y MockMvc
+        run: bash scripts/ci/run-tests.sh unit
+      - name: Verificar cobertura de ejecucion y redactar informes
+        if: always()
+        run: python3 scripts/ci/reports.py verify unit
+      - name: Conservar resultados saneados
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unit-results
+          path: |
+            target/ci-reports/unit/TEST-*.xml
+            target/ci-reports/unit/summary.json
+          if-no-files-found: error
+          retention-days: 7
+
+  sqlserver:
+    name: Seguridad con SQL Server aislado
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Iniciar SQL Server temporal con credenciales efimeras
+        run: bash scripts/ci/sqlserver.sh start
+      - name: Crear la base y aplicar exclusivamente V1-V3
+        run: bash scripts/ci/sqlserver.sh migrate
+      - name: Compilar y ejecutar integracion y concurrencia reales
+        run: bash scripts/ci/run-tests.sh sqlserver
+      - name: Verificar todas las integraciones y las tres carreras
+        if: always()
+        run: python3 scripts/ci/reports.py verify sqlserver
+      - name: Eliminar exclusivamente el contenedor de esta ejecucion
+        if: always()
+        run: bash scripts/ci/sqlserver.sh cleanup
+      - name: Conservar resultados saneados
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sqlserver-results
+          path: |
+            target/ci-reports/sqlserver/TEST-*.xml
+            target/ci-reports/sqlserver/summary.json
+          if-no-files-found: error
+          retention-days: 7
+
+  ci:
+    name: Backend CI obligatorio
+    if: always()
+    needs: [unit, sqlserver]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Exigir que ambas suites hayan terminado correctamente
+        env:
+          UNIT_RESULT: ${{ needs.unit.result }}
+          SQLSERVER_RESULT: ${{ needs.sqlserver.result }}
+        run: |
+          [[ "$UNIT_RESULT" == success && "$SQLSERVER_RESULT" == success ]] || {
+            echo 'CI incompleto: ambas suites deben ejecutarse y aprobar.' >&2
+            exit 1
+          }
