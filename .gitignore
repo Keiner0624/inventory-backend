@@ -35,3 +35,18 @@ build/
 ### Herramientas Python de CI ###
 __pycache__/
 *.py[cod]
+
+### Secretos y configuracion local ###
+.env
+.env.*
+!.env.example
+!.env.sample
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+application-local.properties
+application-local.yml
+application-local.yaml
