@@ -193,7 +193,7 @@ class AuditoriaSqlServerTest {
     @Test void falloObligatorioAlAuditarTransferenciaRevierteTodo() {
         var f=fixture(); entrada(f,f.primero(),10);
         doAnswer(call -> { call.callRealMethod(); em.flush(); throw new IllegalStateException("Fallo de auditoría controlado"); })
-                .when(auditoria).registrar(eq(TRANSFERENCIA_REGISTRADA),anyLong(),anyLong(),any());
+                .when(org.springframework.test.util.AopTestUtils.<AuditoriaService>getUltimateTargetObject(auditoria)).registrar(eq(TRANSFERENCIA_REGISTRADA),anyLong(),anyLong(),any());
         assertThrows(IllegalStateException.class, () -> transferencias.registrar(clave(),
                 new TransferenciaRequest(f.producto().getId(),f.origen().getId(),f.destino().getId(),4,null)));
         assertEquals(10,stock(f.primero().getId(),f.origen().getId()));
@@ -209,7 +209,7 @@ class AuditoriaSqlServerTest {
             // Viola CK_eventos_auditoria_json mediante SQL real en la MISMA transacción.
             jdbc.update("INSERT INTO dbo.eventos_auditoria(fecha,usuario_id,usuario_identificador,accion,entidad,entidad_id,descripcion,detalles) VALUES(TODATETIMEOFFSET(SYSUTCDATETIME(),'+00:00'),?,'fixture@example.invalid','ENTRADA_REGISTRADA','MOVIMIENTO_INVENTARIO',1,N'Prueba','json-invalido')",actor.getId());
             return null;
-        }).when(auditoria).registrar(eq(ENTRADA_REGISTRADA),anyLong(),anyLong(),any());
+        }).when(org.springframework.test.util.AopTestUtils.<AuditoriaService>getUltimateTargetObject(auditoria)).registrar(eq(ENTRADA_REGISTRADA),anyLong(),anyLong(),any());
         assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () -> entrada(f,f.primero(),5));
         assertEquals(0,stock(f.primero().getId(),f.origen().getId()));
         assertEquals(0,eventos("ENTRADA_REGISTRADA"));
@@ -277,6 +277,9 @@ class AuditoriaSqlServerTest {
         assertEquals(1,consulta.listar(0,20,actor.getId(),ENTRADA_REGISTRADA,null,event.entidadId(),null,null,null).totalElementos());
     }
     String login(Usuario user) throws Exception {
+        // Las llamadas de servicio usan un contexto explícito; HTTP debe empezar sin ese contexto de prueba.
+        org.springframework.security.test.context.TestSecurityContextHolder.clearContext();
+        SecurityContextHolder.clearContext();
         var response=mvc.perform(post("/api/auth/login").contentType("application/json")
                 .content(json.writeValueAsString(new LoginRequest(user.getCorreo(),PASSWORD)))).andReturn().getResponse();
         assertEquals(200,response.getStatus());

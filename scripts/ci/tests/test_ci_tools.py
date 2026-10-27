@@ -76,6 +76,16 @@ class ReportsTest(unittest.TestCase):
         for file in (self.root / "target/ci-reports/unit").iterdir():
             self.assertNotIn(secret, file.read_text(encoding="utf-8"))
 
+    def test_failure_metadata_does_not_publish_messages_or_stack_values(self):
+        detail = ET.Element("error", {"message": "secret-value", "type": "unknown.secret-value"})
+        detail.text = ("org.springframework.transaction.IllegalTransactionStateException: secret-value\n"
+                       "at com.lmmedical.inventory.integration.AuditoriaSqlServerTest.probar(AuditoriaSqlServerTest.java:170)\n"
+                       "credential=secret-value")
+        result = reports.failure_metadata(detail, "com.lmmedical.inventory.integration.AuditoriaSqlServerTest")
+        self.assertEqual(["IllegalTransactionStateException"], result["exception_types"])
+        self.assertEqual(["AuditoriaSqlServerTest.java:170"], result["test_locations"])
+        self.assertNotIn("secret-value", json.dumps(result))
+
     def test_successful_reports_also_strip_logs_and_properties(self):
         secret = "sensitive-fixture-should-never-be-published"
         self.report(secret=secret)

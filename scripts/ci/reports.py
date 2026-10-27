@@ -42,12 +42,25 @@ def identifier(value):
     return value
 
 
+def failure_metadata(element, classname):
+    raw = (element.get("type", "") + "\n" + (element.text or ""))
+    allowed = {"IllegalTransactionStateException", "AssertionFailedError", "DataIntegrityViolationException",
+               "InvalidDataAccessApiUsageException", "SQLServerException", "ServletException",
+               "UnexpectedRollbackException", "LazyInitializationException", "NullPointerException"}
+    types = sorted(name for name in allowed if re.search(r"\b" + name + r"\b", raw))
+    # Solo líneas de nuestras clases de prueba públicas; no nombres de datos ni argumentos.
+    filename = classname.rsplit(".", 1)[-1].split("$", 1)[0] + ".java"
+    locations = sorted(set(re.findall(r"\b(" + re.escape(filename) + r":[0-9]+)\)", raw)))
+    return {"exception_types": types, "test_locations": locations}
+
+
 def verify(root, suite, plan=None):
     raw, public, private = locations(root, suite)
     public.mkdir(parents=True, exist_ok=True)
     for old in public.glob("TEST-*.xml"):
         old.unlink()
     problems, cases, failed = [], set(), []
+    failure_details = []
     totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
     started = 0
     try:
@@ -88,10 +101,11 @@ def verify(root, suite, plan=None):
                 if re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", duration):
                     clean.set("time", duration)
                 for tag, count in (("failure", "failures"), ("error", "errors"), ("skipped", "skipped")):
-                    for _ in test.findall(tag):
+                    for detail in test.findall(tag):
                         measured[count] += 1
                         ET.SubElement(clean, tag, {"message": "Consultar el caso localmente; detalles crudos no publicados"})
                         failed.append(key)
+                        failure_details.append({"case": key, **failure_metadata(detail, classname)})
             if any(counts[key] != value for key, value in measured.items()):
                 raise ValueError("Estados JUnit inconsistentes")
             for key, value in counts.items():
@@ -120,7 +134,7 @@ def verify(root, suite, plan=None):
     summary = {"suite": suite, "passed": not problems, "maven_exit": maven_exit,
                **totals, "verified_concurrency_cases": races,
                "problems": sorted(set(problems)), "failed_cases": sorted(set(failed)),
-               "missing_required_cases": sorted(missing)}
+               "missing_required_cases": sorted(missing), "failure_details": failure_details}
     (public / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     # La consola tampoco contiene mensajes de excepcion ni propiedades del proceso.
     print(json.dumps({key: value for key, value in summary.items() if key not in ("failed_cases", "missing_required_cases")}))
