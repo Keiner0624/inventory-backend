@@ -105,12 +105,66 @@ Fuentes de diseño: [propagación transaccional de Spring](https://docs.spring.i
 
 ## Evidencia de validación
 
-Validación local con Java 21: **179 pruebas unitarias/MockMvc aprobadas**, sin fallos ni omisiones (153 anteriores y 26 nuevas). **16 pruebas Python de los controles CI aprobadas**. Ambos workflows validados con actionlint; sintaxis Bash verificada. La revisión Gitleaks de candidatos e historial y el cotejo con secretos locales conocidos no encontraron exposiciones. V1–V3 y la configuración de perfiles permanecen intactos.
+Validación local con Java 21: **179 pruebas unitarias/MockMvc aprobadas**, sin fallos ni omisiones (153 anteriores y 26 nuevas). **17 pruebas Python de los controles CI aprobadas**. Ambos workflows validados con actionlint; sintaxis Bash verificada. La revisión Gitleaks de candidatos e historial y el cotejo con secretos locales conocidos no encontraron exposiciones. V1–V3 y la configuración de perfiles permanecen intactos.
 
-La suite SQL prevista comprende **55 casos**: 37 anteriores de seguridad y 18 nuevos de auditoría, incluidos tres escenarios de competencia por stock y uno de idempotencia concurrente. Su resultado real se documentará después de ejecutar el contenedor temporal en la pull request; compilar esas pruebas localmente no demuestra su aprobación.
+La ejecución real [Backend CI 40449391425](https://github.com/Keiner0624/inventory-backend/actions/runs/40449391425), commit `5629994a77dbca2722d5e4e73bce8dfd36b665d9`, terminó **success**. Los tres jobs aprobaron: unitarias/MockMvc, SQL Server aislado y barrera obligatoria.
+
+- **179 pruebas Java unitarias/MockMvc aprobadas**, sin fallos, errores ni omisiones.
+- **55 pruebas reales SQL Server aprobadas**, sin fallos, errores ni omisiones: 37 anteriores de seguridad y 18 de auditoría. El contrato confirmó todos los casos requeridos, incluidos tres escenarios de competencia por stock, una carrera de idempotencia y las tres carreras anteriores de refresh.
+- **17 pruebas Python de infraestructura aprobadas**; el caso nuevo verifica que los diagnósticos no publican mensajes ni datos sensibles.
+- Flyway verificó V1–V4 y las 16 tablas de negocio en la base efímera. Las pruebas verificaron `version=4`, `type=SQL`, `success=1`, permisos de solo inserción/consulta en auditoría y reversión real de escrituras.
+- La eliminación del contenedor y base temporales terminó correctamente. Ninguna base local fue modificada.
+
+La primera ejecución SQL detectó tres problemas de montaje de las pruebas: la preparación del spy atravesaba el proxy transaccional MANDATORY fuera de una transacción, y el contexto de autenticación preparado para llamadas de servicio contaminaba el escenario HTTP. Se configura el spy sobre su objeto destino conservando el proxy durante la operación real, y se limpia el contexto antes del login HTTP. No se modificó producción para resolver estos fallos, ni se eliminaron assertions o escenarios. Las pruebas de rollback provocan escrituras/errores SQL reales dentro de la misma transacción.
+
+Los reportes públicos mantienen ocultos mensajes y stacks. En caso de fallo solo incluyen nombres de excepciones de una lista permitida y líneas del archivo de la prueba ya identificado; no vuelcan contenido de solicitudes ni credenciales.
 
 ## Alcance pendiente deliberado
 
 No incluye auditoría de intentos fallidos, login/logout, el bootstrap inicial sin un actor autenticado, trabajos automáticos, exportación, retención/purga, firmas criptográficas ni acciones SQL realizadas fuera de la aplicación. No reconstruye eventos históricos anteriores a V4. No realiza despliegues ni merge a main.
 
 El workflow Backend CI también se ejecuta en pushes a ramas feature/**. Esto permite validar ramas para revisión aunque la integración de GitHub no tenga permiso para crear pull requests (403 observado). No modifica permisos, credenciales, controles de pruebas ni la rama main.
+
+## Inventario de archivos entregados
+
+Creados (15):
+
+- `docs/FASE_13_AUDITORIA_EMPRESARIAL.md`
+- `src/main/java/com/lmmedical/inventory/controller/AuditoriaController.java`
+- `src/main/java/com/lmmedical/inventory/dto/auditoria/AuditoriaPaginaResponse.java`
+- `src/main/java/com/lmmedical/inventory/dto/auditoria/DetalleAuditoria.java`
+- `src/main/java/com/lmmedical/inventory/dto/auditoria/EventoAuditoriaResponse.java`
+- `src/main/java/com/lmmedical/inventory/entity/EventoAuditoria.java`
+- `src/main/java/com/lmmedical/inventory/enums/AccionAuditoria.java`
+- `src/main/java/com/lmmedical/inventory/enums/EntidadAuditoria.java`
+- `src/main/java/com/lmmedical/inventory/repository/EventoAuditoriaRepository.java`
+- `src/main/java/com/lmmedical/inventory/service/AuditoriaConsultaService.java`
+- `src/main/java/com/lmmedical/inventory/service/AuditoriaService.java`
+- `src/main/resources/db/migration/V4__crear_auditoria_empresarial.sql`
+- `src/test/java/com/lmmedical/inventory/controller/AuditoriaHttpTest.java`
+- `src/test/java/com/lmmedical/inventory/integration/AuditoriaSqlServerTest.java`
+- `src/test/java/com/lmmedical/inventory/service/AuditoriaServiceTest.java`
+
+Modificados (19):
+
+- `.github/workflows/backend-ci.yml`
+- `pom.xml`
+- `scripts/ci/reports.py`
+- `scripts/ci/sqlserver.sh`
+- `scripts/ci/test-plan.json`
+- `scripts/ci/tests/test_ci_tools.py`
+- `src/main/java/com/lmmedical/inventory/security/SecurityConfig.java`
+- `src/main/java/com/lmmedical/inventory/service/AlmacenService.java`
+- `src/main/java/com/lmmedical/inventory/service/CategoryService.java`
+- `src/main/java/com/lmmedical/inventory/service/InventarioService.java`
+- `src/main/java/com/lmmedical/inventory/service/LoteService.java`
+- `src/main/java/com/lmmedical/inventory/service/ProductService.java`
+- `src/main/java/com/lmmedical/inventory/service/ProveedorService.java`
+- `src/main/java/com/lmmedical/inventory/service/SalidaInventarioService.java`
+- `src/main/java/com/lmmedical/inventory/service/TransferenciaService.java`
+- `src/main/java/com/lmmedical/inventory/service/UsuarioService.java`
+- `src/test/java/com/lmmedical/inventory/service/SalidaInventarioServiceTest.java`
+- `src/test/java/com/lmmedical/inventory/service/UsuarioAdministracionTest.java`
+- `src/test/java/com/lmmedical/inventory/service/UsuarioServiceRolesTest.java`
+
+Rama publicada: [feature/auditoria-empresarial](https://github.com/Keiner0624/inventory-backend/tree/feature/auditoria-empresarial). La integración no permitió abrir la PR (403); puede abrirse desde [la comparación con main](https://github.com/Keiner0624/inventory-backend/compare/main...feature/auditoria-empresarial). No se hizo merge.
